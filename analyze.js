@@ -157,7 +157,7 @@ async function runGemini(prompt, filePath, geminiKey) {
   const ext = path.extname(filePath).toLowerCase();
   const data = fs.readFileSync(filePath).toString('base64');
   const mime = ext === '.pdf' ? 'application/pdf' : (MIME[ext] || 'image/png');
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5 * 60 * 1000);
   try {
