@@ -154,6 +154,24 @@ function runClaudeCli(prompt, timeoutMs) {
 
 /* ---------- Engine 2: Google Gemini API (FREE tier) ---------- */
 async function runGemini(prompt, filePath, geminiKey) {
+  // 503 (high demand) par 2 baar auto-retry, 20s gap se
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await runGeminiOnce(prompt, filePath, geminiKey);
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 3 && /503|high demand|UNAVAILABLE|overloaded/i.test(String(e.message))) {
+        await new Promise(r => setTimeout(r, 20000));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
+async function runGeminiOnce(prompt, filePath, geminiKey) {
   const ext = path.extname(filePath).toLowerCase();
   const data = fs.readFileSync(filePath).toString('base64');
   const mime = ext === '.pdf' ? 'application/pdf' : (MIME[ext] || 'image/png');
