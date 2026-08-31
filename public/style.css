@@ -19,7 +19,7 @@ body { font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans Devanagari"
 .sidebar-bottom { border-top: 1px solid #1e293b; padding-top: 10px; }
 
 /* ---- main ---- */
-.main { flex: 1; padding: 18px 22px; max-width: 1250px; }
+.main { flex: 1; min-width: 0; padding: 18px 22px; max-width: 1250px; }
 .empty-state { text-align: center; margin-top: 12vh; color: var(--mut); }
 .empty-state .big { font-size: 64px; }
 .empty-state h2 { color: var(--ink); margin: 10px 0 6px; }
@@ -144,6 +144,71 @@ body { font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans Devanagari"
 .chat-msg.changes { background: #ecfdf5; border-color: #6ee7b7; font-size: 12px; }
 .chat-inputrow { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); background: #fff; }
 .chat-inputrow input { flex: 1; }
+
+/* ---- mobile topbar & drawer (phone view) ---- */
+.mobile-topbar { display: none; }
+.side-overlay { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-topbar { display: flex; align-items: center; gap: 8px; position: fixed; top: 0; left: 0; right: 0; height: 54px; background: #0f172a; color: #fff; z-index: 65; padding: 0 10px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .mobile-topbar .menu-btn { background: none; border: none; color: #fff; font-size: 24px; padding: 6px 10px; cursor: pointer; }
+  .mobile-topbar .mt-brand { font-weight: 800; font-size: 16px; flex: 1; }
+  .layout { padding-top: 54px; }
+
+  /* sidebar becomes slide-in drawer */
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; height: 100dvh; width: 272px; z-index: 80; transform: translateX(-105%); transition: transform .25s ease; box-shadow: 8px 0 24px rgba(0,0,0,.35); }
+  .sidebar.open { transform: translateX(0); }
+  .side-overlay.show { display: block; position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 75; }
+
+  .main { padding: 12px; max-width: 100%; width: 100%; box-sizing: border-box; }
+
+  /* project header stacks */
+  .proj-title-row { flex-wrap: wrap; gap: 8px; }
+  .title-input { width: 100%; font-size: 18px; }
+  .proj-meta { gap: 8px; }
+  .proj-meta label { flex: 1 1 100%; }
+  .proj-meta input { min-width: 0; width: 100%; box-sizing: border-box; font-size: 16px; }
+
+  /* tabs scroll horizontally */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .tab { white-space: nowrap; flex: 0 0 auto; padding: 10px 14px; }
+
+  /* touch-friendly controls; 16px inputs stop iOS auto-zoom */
+  .btn { padding: 10px 14px; }
+  .btn-sm { padding: 8px 12px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid input, .form-grid select, .block-label input, .chat-inputrow input { font-size: 16px; }
+
+  .drawings-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .dcard .dactions { flex-wrap: wrap; gap: 6px; }
+  .quick-drawing-view { max-height: 300px; }
+  .quick-drawing-view iframe { height: 290px; }
+  .dropzone { padding: 18px 10px; font-size: 13px; }
+
+  /* tables stay scrollable, controls readable */
+  .tbl { font-size: 12.5px; }
+  .tbl input.num { width: 56px; }
+  .tbl select { min-width: 150px; }
+
+  /* modals go full screen */
+  .modal-backdrop { padding: 0; align-items: stretch; }
+  .modal, .modal-lg { width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .viewer-body iframe { height: calc(100dvh - 130px); }
+
+  /* chat goes full screen */
+  .chat-fab { bottom: 16px; right: 16px; width: 54px; height: 54px; font-size: 24px; }
+  .chat-panel { inset: 0; width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .chat-msg { max-width: 92%; font-size: 14px; }
+
+  .addons { gap: 10px; }
+  .toast { width: calc(100vw - 36px); box-sizing: border-box; text-align: center; }
+
+  /* no sideways page scroll, headers wrap cleanly */
+  html, body { overflow-x: hidden; }
+  .card { box-sizing: border-box; }
+  .card-head h3 { font-size: 15px; }
+  .card-head > div, .card-head > label { flex: 0 0 auto; }
+}
 
 /* ---- print ---- */
 .print-head { display: none; }

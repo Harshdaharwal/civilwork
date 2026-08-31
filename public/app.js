@@ -53,9 +53,18 @@ async function newProject() {
   toast('✅ Project created');
 }
 
+function toggleSidebar(force) {
+  const sb = document.querySelector('.sidebar');
+  const ov = $('sideOverlay');
+  const open = typeof force === 'boolean' ? force : !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  ov.classList.toggle('show', open);
+}
+
 function selectProject(id) {
   CUR = DB.projects.find(p => p.id === id);
   if (!CUR) return;
+  toggleSidebar(false);
   $('emptyState').style.display = 'none';
   $('projectView').style.display = 'block';
   $('pName').value = CUR.name;

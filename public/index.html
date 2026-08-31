@@ -8,6 +8,14 @@
 </head>
 <body>
 
+<!-- mobile topbar (phone view only) -->
+<div class="mobile-topbar no-print">
+  <button class="menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+  <span class="mt-brand">🏗️ Civil Estimate</span>
+  <button class="btn btn-primary btn-sm" onclick="newProject()">＋ New</button>
+</div>
+<div id="sideOverlay" class="side-overlay no-print" onclick="toggleSidebar(false)"></div>
+
 <div class="layout">
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar no-print">
