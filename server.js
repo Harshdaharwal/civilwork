@@ -201,7 +201,7 @@ function applyChatOps(project, db, ops) {
           itemId: known ? op.itemId : '',
           item: known ? '' : String(op.item || 'Item').slice(0, 160),
           description: String(op.description || '').slice(0, 200),
-          nos: num(op.nos) ?? 1, L: num(op.L) ?? '', B: num(op.B) ?? '', H: num(op.H) ?? '',
+          nos: (num(op.nos) || 1), L: num(op.L) ?? '', B: num(op.B) ?? '', H: num(op.H) ?? '',
           unit: known ? known.unit : String(op.unit || '').slice(0, 12),
           rate: known ? 0 : (num(op.rate) ?? 0),
         };
