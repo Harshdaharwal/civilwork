@@ -586,6 +586,7 @@ async function syncProject() {
 function openSettings() {
   $('setScriptUrl').value = DB.settings.scriptUrl || '';
   $('setApiKey').value = DB.settings.apiKey || '';
+  $('setGeminiKey').value = DB.settings.geminiKey || '';
   renderRates();
   $('settingsModal').style.display = 'flex';
 }
@@ -594,6 +595,7 @@ function closeSettings() { $('settingsModal').style.display = 'none'; }
 async function saveSettings() {
   DB.settings.scriptUrl = $('setScriptUrl').value.trim();
   DB.settings.apiKey = $('setApiKey').value.trim();
+  DB.settings.geminiKey = $('setGeminiKey').value.trim();
   await api('/api/settings', { method: 'PUT', body: JSON.stringify(DB.settings) });
   toast('💾 Settings save ho gayi');
 }

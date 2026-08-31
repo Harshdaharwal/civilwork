@@ -152,7 +152,45 @@ function runClaudeCli(prompt, timeoutMs) {
   });
 }
 
-/* ---------- Engine 2: Anthropic API SDK ---------- */
+/* ---------- Engine 2: Google Gemini API (FREE tier) ---------- */
+async function runGemini(prompt, filePath, geminiKey) {
+  const ext = path.extname(filePath).toLowerCase();
+  const data = fs.readFileSync(filePath).toString('base64');
+  const mime = ext === '.pdf' ? 'application/pdf' : (MIME[ext] || 'image/png');
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5 * 60 * 1000);
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 65536, temperature: 0.2 },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      if (resp.status === 429) throw new Error('Gemini free quota abhi khatam hai — 1-2 minute baad dobara try karo');
+      if ((resp.status === 400 || resp.status === 403) && /API key|permission/i.test(errText)) throw new Error('Gemini API key galat/expired hai — aistudio.google.com se nayi key banao aur Settings me dalo');
+      throw new Error('Gemini API error ' + resp.status + ': ' + errText.slice(0, 200));
+    }
+    const json = await resp.json();
+    const cand = json.candidates && json.candidates[0];
+    const parts = (cand && cand.content && cand.content.parts) || [];
+    const text = parts.map(p => p.text || '').join('');
+    if (!text) throw new Error('Gemini se khali jawab aaya' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : '') + ' — dobara try karo');
+    return text;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Gemini analysis timeout (5 min) — chhoti/saaf image se try karo');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ---------- Engine 3: Anthropic API SDK ---------- */
 async function runApi(prompt, filePath, apiKey) {
   const Anthropic = require('@anthropic-ai/sdk').default || require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
@@ -179,16 +217,19 @@ async function runApi(prompt, filePath, apiKey) {
 }
 
 /* ---------- main entry ---------- */
-async function analyzeDrawing({ filePath, rates, apiKey }) {
+async function analyzeDrawing({ filePath, rates, apiKey, geminiKey }) {
   const ext = path.extname(filePath).toLowerCase();
   if (!MIME[ext] && ext !== '.pdf') {
     throw new Error('Yeh file format AI nahi padh sakta (' + ext + ') — PNG, JPG, WEBP, GIF ya PDF upload karo. DWG/DXF ko PDF me export kar lo. Phone photo (HEIC) ho to JPG me convert karo.');
   }
+  // Engine priority: Gemini (free) > Anthropic API > claude CLI (sirf local)
   let text;
-  if (apiKey) {
+  if (geminiKey) {
+    text = await runGemini(buildPrompt(rates, null), filePath, geminiKey);
+  } else if (apiKey) {
     text = await runApi(buildPrompt(rates, null), filePath, apiKey);
   } else if (process.env.VERCEL) {
-    throw new Error('Online (Vercel) version par AI ke liye API key chahiye — Vercel dashboard me ANTHROPIC_API_KEY environment variable set karo, ya Settings me API key dalo. Bina key ke AI sirf localhost par chalta hai (Claude Code se).');
+    throw new Error('Online (Vercel) version par AI ke liye key chahiye — FREE Gemini key aistudio.google.com se banao aur Vercel me GEMINI_API_KEY environment variable set karo (ya app Settings me dalo). Bina key ke AI sirf localhost par chalta hai (Claude Code se).');
   } else {
     text = await runClaudeCli(buildPrompt(rates, filePath), 8 * 60 * 1000);
   }

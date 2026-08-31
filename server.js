@@ -171,6 +171,7 @@ app.post('/api/projects/:id/drawings/:did/analyze', async (req, res) => {
       filePath,
       rates: db.rates,
       apiKey: (db.settings.apiKey || process.env.ANTHROPIC_API_KEY || '').trim() || null,
+      geminiKey: (db.settings.geminiKey || process.env.GEMINI_API_KEY || '').trim() || null,
     });
     // save analysis with the drawing for later reference
     const db2 = loadDb();

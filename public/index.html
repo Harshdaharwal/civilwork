@@ -187,9 +187,13 @@
       </div>
       <hr>
       <h4>🤖 AI Drawing Analysis</h4>
-      <p class="hint">Default में AI analysis आपके computer पर installed <b>Claude Code</b> से चलती है — कुछ setup नहीं चाहिए। अगर Anthropic API key है तो नीचे डालो (तेज़ चलेगा):</p>
-      <label class="block-label">Anthropic API Key (optional)
-        <input id="setApiKey" type="password" placeholder="sk-ant-... (khali chhodo to Claude Code use hoga)">
+      <p class="hint"><b>🆓 FREE option (recommended):</b> <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> से Google Gemini की <b>free API key</b> बनाओ (Google login → Create API key → copy) — कोई credit card नहीं चाहिए:</p>
+      <label class="block-label">Google Gemini API Key (FREE) 🆓
+        <input id="setGeminiKey" type="password" placeholder="AIza... (aistudio.google.com se free banao)">
+      </label>
+      <p class="hint">Ya phir: Anthropic API key (paid, best quality) — khali chhodne par localhost pe Claude Code use hota hai:</p>
+      <label class="block-label">Anthropic API Key (optional, paid)
+        <input id="setApiKey" type="password" placeholder="sk-ant-...">
       </label>
       <hr>
       <h4>💹 Rate List (SOR) — rates edit करो, अपने area के हिसाब से</h4>

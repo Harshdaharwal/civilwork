@@ -89,12 +89,16 @@ Code GitHub पर है: **https://github.com/Harshdaharwal/civilwork**
 1. [vercel.com](https://vercel.com) पर GitHub से login करो
 2. **Add New → Project** → `civilwork` repo **Import** करो
 3. कुछ मत बदलो, सीधा **Deploy** दबाओ
-4. 🤖 AI online चलाने के लिए: Project → **Settings → Environment Variables** → naam `ANTHROPIC_API_KEY`, value में [console.anthropic.com](https://console.anthropic.com) से बनी API key → Save → **Redeploy**
+4. 🤖 AI online चलाने के लिए (🆓 **FREE — Google Gemini**):
+   - [aistudio.google.com/apikey](https://aistudio.google.com/apikey) खोलो → Google से login → **Create API key** → key copy करो (बिल्कुल free, कोई card नहीं)
+   - Vercel में Project → **Settings → Environment Variables** → naam `GEMINI_API_KEY`, value में वो key → Save
+   - **Deployments** tab → latest → ⋯ → **Redeploy**
+   - (Paid option: `ANTHROPIC_API_KEY` — best quality, [console.anthropic.com](https://console.anthropic.com) से)
 
 ### ⚠️ Online version की limitations (जान लो):
 - **Data temporary है** — Vercel पर projects/drawings कुछ time बाद reset हो सकते हैं। **रोज़ के काम के लिए localhost use करो** (data permanent रहता है), final estimate Google Sheet में sync कर लो — वो हमेशा safe है
 - Online पर drawing upload **max ~4 MB** (localhost पर 50 MB)
-- Online पर AI के लिए API key ज़रूरी है (localhost पर Claude Code से free चलता है)
+- Online पर AI के लिए Gemini की free key ज़रूरी है (localhost पर Claude Code से बिना key चलता है)
 
 ### 🔒 Security:
 - API key, projects data, drawings — **कुछ भी GitHub पर नहीं जाता** (.gitignore में block है)
