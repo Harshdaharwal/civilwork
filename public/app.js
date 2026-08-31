@@ -407,6 +407,71 @@ function closeAi() {
   $('aiModal').style.display = 'none';
 }
 
+/* ================= CHAT ASSISTANT ================= */
+let CHAT_HISTORY = [];
+let CHAT_BUSY = false;
+
+function toggleChat() {
+  const panel = $('chatPanel');
+  const show = panel.style.display === 'none';
+  panel.style.display = show ? 'flex' : 'none';
+  if (show) $('chatInput').focus();
+}
+
+function chatBubble(text, who) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + who;
+  div.innerHTML = esc(text).replace(/\n/g, '<br>');
+  $('chatMsgs').appendChild(div);
+  $('chatMsgs').scrollTop = $('chatMsgs').scrollHeight;
+  return div;
+}
+
+async function sendChat() {
+  if (CHAT_BUSY) return;
+  const input = $('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  if (!CUR) { chatBubble('Pehle koi project kholo ya banao 🙂', 'bot'); return; }
+  input.value = '';
+  chatBubble(msg, 'user');
+  CHAT_HISTORY.push({ role: 'user', text: msg });
+  CHAT_BUSY = true;
+  $('chatSendBtn').disabled = true;
+  const thinking = chatBubble('💭 soch raha hoon...', 'bot');
+  try {
+    const r = await fetch('/api/projects/' + CUR.id + '/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, history: CHAT_HISTORY.slice(-8), project: CUR }),
+    });
+    const data = await r.json().catch(() => ({ error: 'Server se galat jawab' }));
+    if (!r.ok) throw new Error(data.error || 'Chat fail');
+    thinking.remove();
+    chatBubble(data.reply, 'bot');
+    CHAT_HISTORY.push({ role: 'bot', text: data.reply });
+    // changes aaye to project/rates/settings update karke UI refresh
+    if (data.changes && data.changes.length) {
+      CUR.measurements = data.project.measurements;
+      DB.rates = data.rates;
+      DB.settings = data.settings;
+      const i = DB.projects.findIndex(x => x.id === CUR.id);
+      if (i >= 0) DB.projects[i] = CUR;
+      renderMeasure();
+      renderAbstract();
+      scheduleSave();
+      chatBubble('📝 Changes: ' + data.changes.join(', '), 'bot changes');
+      toast('✅ Estimate update ho gaya (' + data.changes.length + ' change)');
+    }
+  } catch (e) {
+    thinking.remove();
+    chatBubble('❌ ' + String(e.message || e), 'bot');
+  } finally {
+    CHAT_BUSY = false;
+    $('chatSendBtn').disabled = false;
+    input.focus();
+  }
+}
+
 /* ================= MEASUREMENT SHEET ================= */
 function itemOptions(sel) {
   return ['<option value="">— custom item —</option>']
@@ -568,7 +633,8 @@ async function syncProject() {
   el.className = 'sync-status no-print'; el.textContent = '🔄 Google Sheet me save ho raha hai...';
   await saveProject();
   try {
-    const r = await api('/api/sync/' + CUR.id, { method: 'POST' });
+    // browser apna poora project data saath bhejta hai — serverless par bhi sync kabhi fail nahi hota
+    const r = await api('/api/sync/' + CUR.id, { method: 'POST', body: JSON.stringify({ project: CUR }) });
     el.className = 'sync-status ok no-print';
     el.textContent = '✅ Google Sheet me save ho gaya! (' + new Date().toLocaleTimeString() + ')';
     toast('✅ Data Google Sheet me save ho gaya');

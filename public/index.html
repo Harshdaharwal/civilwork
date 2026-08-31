@@ -206,6 +206,27 @@
   </div>
 </div>
 
+<!-- ============ CHAT ASSISTANT ============ -->
+<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="AI Assistant se baat karo">💬</button>
+<div id="chatPanel" class="chat-panel" style="display:none">
+  <div class="chat-head">
+    <span>🤖 AI Assistant — बोलो क्या change करना है</span>
+    <button class="x" onclick="toggleChat()">✕</button>
+  </div>
+  <div id="chatMsgs" class="chat-msgs">
+    <div class="chat-msg bot">नमस्ते! 🙏 मैं आपके estimate में changes कर सकता हूँ। जैसे:<br>
+      • "brickwork ka rate 6500 kar do"<br>
+      • "row 3 ki length 15 meter karo"<br>
+      • "ek naya item जोड़ो — compound wall 30 rmt"<br>
+      • "GST 12% kar do"<br>
+      • "total kitna ban raha hai?"</div>
+  </div>
+  <div class="chat-inputrow">
+    <input id="chatInput" placeholder="yahan likho... (Enter se send)" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="btn btn-primary btn-sm" id="chatSendBtn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
 <!-- ============ AI ANALYSIS MODAL ============ -->
 <div class="modal-backdrop" id="aiModal" style="display:none">
   <div class="modal modal-lg">

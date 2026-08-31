@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { analyzeDrawing } = require('./analyze');
+const { analyzeDrawing, chatWithAI } = require('./analyze');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -184,6 +184,87 @@ app.post('/api/projects/:id/drawings/:did/analyze', async (req, res) => {
   }
 });
 
+/* ---------- AI chat assistant ---------- */
+function applyChatOps(project, db, ops) {
+  const changes = [];
+  const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+  const calcQty = m => {
+    const n = v => (v === '' || v === null || v === undefined) ? 1 : (Number(v) || 0);
+    return +(n(m.nos) * n(m.L) * n(m.B) * n(m.H)).toFixed(2);
+  };
+  for (const op of ops) {
+    try {
+      if (op.op === 'add') {
+        const known = op.itemId && db.rates.find(r => r.id === op.itemId);
+        const m = {
+          id: 'm' + Math.random().toString(36).slice(2, 9),
+          itemId: known ? op.itemId : '',
+          item: known ? '' : String(op.item || 'Item').slice(0, 160),
+          description: String(op.description || '').slice(0, 200),
+          nos: num(op.nos) ?? 1, L: num(op.L) ?? '', B: num(op.B) ?? '', H: num(op.H) ?? '',
+          unit: known ? known.unit : String(op.unit || '').slice(0, 12),
+          rate: known ? 0 : (num(op.rate) ?? 0),
+        };
+        m.qty = calcQty(m);
+        project.measurements.push(m);
+        changes.push('➕ ' + (known ? known.item : m.item));
+      } else if (op.op === 'update') {
+        const m = project.measurements[op.row - 1];
+        if (!m) continue;
+        for (const [k, v] of Object.entries(op.fields || {})) {
+          if (['nos', 'L', 'B', 'H', 'rate'].includes(k)) m[k] = num(v) ?? m[k];
+          else if (['description', 'item', 'unit'].includes(k)) m[k] = String(v).slice(0, 200);
+        }
+        m.qty = calcQty(m);
+        changes.push('✏️ Row ' + op.row);
+      } else if (op.op === 'delete') {
+        const removed = project.measurements.splice(op.row - 1, 1);
+        if (removed.length) changes.push('🗑 Row ' + op.row);
+      } else if (op.op === 'set_rate') {
+        const r = db.rates.find(x => x.id === op.itemId);
+        const v = num(op.rate);
+        if (r && v !== null && v >= 0) { r.rate = v; changes.push('💰 ' + r.item + ' → ₹' + v); }
+      } else if (op.op === 'set_setting') {
+        const v = num(op.value);
+        if (['gst', 'contingency', 'electrification', 'plumbing'].includes(op.key) && v !== null && v >= 0 && v <= 100) {
+          db.settings[op.key] = v; changes.push('⚙️ ' + op.key + ' → ' + v + '%');
+        }
+      }
+    } catch { /* ek op fail ho to baaki chalte rahen */ }
+  }
+  return changes;
+}
+
+app.post('/api/projects/:id/chat', async (req, res) => {
+  const db = loadDb();
+  // serverless-safe: browser apna project bhejta hai
+  const bodyProject = req.body && req.body.project;
+  let p = (bodyProject && bodyProject.id === req.params.id)
+    ? bodyProject
+    : db.projects.find(x => x.id === req.params.id);
+  if (!p) return res.status(404).json({ error: 'Project not found' });
+  if (!Array.isArray(p.measurements)) p.measurements = [];
+  const message = String((req.body && req.body.message) || '').slice(0, 2000);
+  if (!message.trim()) return res.status(400).json({ error: 'Message khali hai' });
+  try {
+    const out = await chatWithAI({
+      project: p, rates: db.rates, settings: db.settings,
+      history: (req.body && req.body.history) || [], message,
+      apiKey: (db.settings.apiKey || process.env.ANTHROPIC_API_KEY || '').trim() || null,
+      geminiKey: (db.settings.geminiKey || process.env.GEMINI_API_KEY || '').trim() || null,
+    });
+    const changes = applyChatOps(p, db, out.ops || []);
+    // db me bhi save karo (local par permanent; serverless par best-effort)
+    const idx = db.projects.findIndex(x => x.id === p.id);
+    if (idx >= 0) db.projects[idx] = { ...db.projects[idx], ...p };
+    else db.projects.push(p);
+    saveDb(db);
+    res.json({ reply: out.reply, changes, project: p, rates: db.rates, settings: db.settings });
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e) });
+  }
+});
+
 app.put('/api/settings', (req, res) => {
   const db = loadDb();
   db.settings = { ...db.settings, ...req.body };
@@ -231,7 +312,11 @@ function computeAbstract(db, p) {
 /* ---------- Google Sheet sync via Apps Script webhook ---------- */
 app.post('/api/sync/:id', async (req, res) => {
   const db = loadDb();
-  const p = db.projects.find(x => x.id === req.params.id);
+  // Vercel/serverless: alag instance par db khali ho sakta hai —
+  // browser apna project data body me bhej deta hai, wahi use karo
+  const p = (req.body && req.body.project && req.body.project.id === req.params.id)
+    ? req.body.project
+    : db.projects.find(x => x.id === req.params.id);
   if (!p) return res.status(404).json({ error: 'Project not found' });
   const url = (db.settings.scriptUrl || '').trim();
   if (!url) return res.status(400).json({ error: 'NO_SCRIPT_URL' });

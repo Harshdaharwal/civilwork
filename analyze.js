@@ -254,4 +254,107 @@ async function analyzeDrawing({ filePath, rates, apiKey, geminiKey }) {
   return sanitizeResult(extractJson(text), rates);
 }
 
-module.exports = { analyzeDrawing };
+/* ================= CHAT ASSISTANT =================
+ * User chat se estimate me changes karwata hai — AI ops return karta hai,
+ * server unhe apply karta hai. */
+
+function buildChatPrompt(project, rates, settings, history, userMsg) {
+  const mLines = (project.measurements || []).map((m, i) => {
+    const r = rates.find(x => x.id === m.itemId);
+    return `${i + 1}. ${r ? r.item : (m.item || m.description)} | ${m.description || '-'} | nos=${m.nos} L=${m.L || '-'} B=${m.B || '-'} H=${m.H || '-'} qty=${m.qty} ${r ? r.unit : m.unit}${r ? '' : ' rate=' + (m.rate || 0)}`;
+  }).join('\n') || '(measurement sheet khali hai)';
+  const rateList = rates.map(r => `${r.id}: ${r.item} | ${r.unit} | Rs.${r.rate}`).join('\n');
+  const hist = (history || []).slice(-6).map(h => `${h.role === 'user' ? 'User' : 'You'}: ${h.text}`).join('\n');
+  return `You are the friendly Hindi/Hinglish assistant inside a civil-estimate app. The user talks to you to understand or CHANGE their estimate.
+
+CURRENT PROJECT: "${project.name}" (client: ${project.client || '-'})
+MEASUREMENT SHEET (row numbers 1-based):
+${mLines}
+
+RATE LIST (SOR):
+${rateList}
+
+SETTINGS: electrification=${settings.electrification}% plumbing=${settings.plumbing}% contingency=${settings.contingency}% gst=${settings.gst}%
+
+${hist ? 'RECENT CHAT:\n' + hist + '\n' : ''}USER SAYS: ${userMsg}
+
+You can change the estimate by returning ops. Available ops:
+- {"op":"add","itemId":"r4" or null,"item":"name (when itemId null)","description":"...","nos":N,"L":N|null,"B":N|null,"H":N|null,"unit":"cum (when itemId null)","rate":N (when itemId null)}
+- {"op":"update","row":<1-based row number>,"fields":{"nos":N,"L":N,"B":N,"H":N,"description":"...","rate":N}}  (only fields being changed)
+- {"op":"delete","row":<1-based row number>}
+- {"op":"set_rate","itemId":"r8","rate":N}   (SOR rate change — affects all projects)
+- {"op":"set_setting","key":"gst"|"contingency"|"electrification"|"plumbing","value":N}
+
+RULES:
+1. Reply in the user's language (Hindi/Hinglish), short and warm. Numbers with Rs.
+2. Only include ops when the user clearly asks for a change. Questions get reply with ops=[].
+3. Never invent rows that don't exist; row numbers must match the sheet above.
+4. If the request is unclear, ask a short clarifying question (ops=[]).
+
+Return ONLY JSON: {"reply":"...","ops":[...]}`;
+}
+
+async function chatWithAI({ project, rates, settings, history, message, apiKey, geminiKey }) {
+  const prompt = buildChatPrompt(project, rates, settings, history, message);
+  let text;
+  if (geminiKey) {
+    text = await runGeminiText(prompt, geminiKey);
+  } else if (apiKey) {
+    text = await runApiText(prompt, apiKey);
+  } else if (process.env.VERCEL) {
+    throw new Error('Chat ke liye AI key chahiye — GEMINI_API_KEY set karo');
+  } else {
+    text = await runClaudeCliText(prompt, 3 * 60 * 1000);
+  }
+  const out = extractJson(text);
+  return {
+    reply: String(out.reply || 'Ho gaya!').slice(0, 2000),
+    ops: Array.isArray(out.ops) ? out.ops.slice(0, 30) : [],
+  };
+}
+
+/* text-only variants of the three engines */
+async function runGeminiText(prompt, geminiKey) {
+  const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 16384, temperature: 0.3 },
+      }),
+    });
+    if (resp.status === 503 && attempt < 3) { await new Promise(r => setTimeout(r, 15000)); continue; }
+    if (resp.status === 429) throw new Error('Gemini free quota khatam — thodi der baad try karo');
+    if (!resp.ok) throw new Error('Gemini error ' + resp.status + ': ' + (await resp.text().catch(() => '')).slice(0, 150));
+    const json = await resp.json();
+    const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
+    const text = parts.map(p => p.text || '').join('');
+    if (!text) throw new Error('Gemini se khali jawab');
+    return text;
+  }
+  throw new Error('Gemini busy hai — baad me try karo');
+}
+
+async function runApiText(prompt, apiKey) {
+  const Anthropic = require('@anthropic-ai/sdk').default || require('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey });
+  const stream = client.messages.stream({
+    model: 'claude-opus-5',
+    max_tokens: 16000,
+    thinking: { type: 'adaptive' },
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const response = await stream.finalMessage();
+  if (response.stop_reason === 'refusal') throw new Error('AI ne request decline ki');
+  let text = '';
+  for (const block of response.content) if (block.type === 'text') text += block.text;
+  return text;
+}
+
+function runClaudeCliText(prompt, timeoutMs) {
+  return runClaudeCli(prompt, timeoutMs);
+}
+
+module.exports = { analyzeDrawing, chatWithAI };
