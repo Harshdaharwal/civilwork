@@ -48,7 +48,7 @@ Return ONLY a JSON object (no markdown fences, no commentary) with EXACTLY this 
     }
   ],
   "structureType": "string",
-  "summary": "2-3 line summary of what the drawing shows (English + thodi Hindi mix is fine)",
+  "summary": "2-3 line summary of what the drawing shows (in English)",
   "confidence": "high" | "medium" | "low",
   "assumptions": ["string", ...],
   "unreadable": ["string", ...]
@@ -99,16 +99,16 @@ function sanitizeResult(raw, rates) {
       qty,
     };
   }).filter(it => Number.isFinite(it.qty) && it.qty !== 0);
-  if (!items.length) throw new Error('AI ne koi valid item nahi nikala — drawing clear nahi hai ya format issue');
+  if (!items.length) throw new Error('AI could not extract any valid items — the drawing may be unclear or in an unsupported format');
 
   // completeness warnings — RCC bina steel/shuttering, brickwork bina plaster
   const warnings = [];
   const has = re => items.some(it => re.test(it.item));
   if (has(/RCC|concrete M\d/i)) {
-    if (!has(/steel|reinforce/i)) warnings.push('RCC hai par steel reinforcement ka item nahi mila — khud add karo ya dobara AI chalao');
-    if (!has(/shutter|centering|formwork/i)) warnings.push('RCC hai par shuttering/centering ka item nahi mila');
+    if (!has(/steel|reinforce/i)) warnings.push('RCC present but no steel reinforcement item found — add it manually or re-run AI');
+    if (!has(/shutter|centering|formwork/i)) warnings.push('RCC present but no shuttering/centering item found');
   }
-  if (has(/brickwork/i) && !has(/plaster/i)) warnings.push('Brickwork hai par plaster ka item nahi mila');
+  if (has(/brickwork/i) && !has(/plaster/i)) warnings.push('Brickwork present but no plaster item found');
 
   return {
     structureType: String(raw.structureType || 'Unknown').slice(0, 120),
@@ -131,7 +131,7 @@ function runClaudeCli(prompt, timeoutMs) {
     let out = '', err = '';
     const timer = setTimeout(() => {
       try { child.kill(); } catch {}
-      reject(new Error('AI analysis timeout (' + Math.round(timeoutMs / 60000) + ' min) — bada PDF hai to ek page ki image upload karke try karo'));
+      reject(new Error('AI analysis timeout (' + Math.round(timeoutMs / 60000) + ' min) — for large PDFs try uploading a single-page image instead'));
     }, timeoutMs);
     child.stdout.on('data', d => out += d);
     child.stderr.on('data', d => err += d);
@@ -190,18 +190,18 @@ async function runGeminiOnce(prompt, filePath, geminiKey) {
     });
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
-      if (resp.status === 429) throw new Error('Gemini free quota abhi khatam hai — 1-2 minute baad dobara try karo');
-      if ((resp.status === 400 || resp.status === 403) && /API key|permission/i.test(errText)) throw new Error('Gemini API key galat/expired hai — aistudio.google.com se nayi key banao aur Settings me dalo');
+      if (resp.status === 429) throw new Error('Gemini free quota temporarily exhausted — try again in 1-2 minutes');
+      if ((resp.status === 400 || resp.status === 403) && /API key|permission/i.test(errText)) throw new Error('Invalid/expired Gemini API key — create a new key at aistudio.google.com and enter it in Settings');
       throw new Error('Gemini API error ' + resp.status + ': ' + errText.slice(0, 200));
     }
     const json = await resp.json();
     const cand = json.candidates && json.candidates[0];
     const parts = (cand && cand.content && cand.content.parts) || [];
     const text = parts.map(p => p.text || '').join('');
-    if (!text) throw new Error('Gemini se khali jawab aaya' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : '') + ' — dobara try karo');
+    if (!text) throw new Error('Empty response from Gemini' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : '') + ' — please try again');
     return text;
   } catch (e) {
-    if (e.name === 'AbortError') throw new Error('Gemini analysis timeout (5 min) — chhoti/saaf image se try karo');
+    if (e.name === 'AbortError') throw new Error('Gemini analysis timeout (5 min) — try a smaller/clearer image');
     throw e;
   } finally {
     clearTimeout(timer);
@@ -227,7 +227,7 @@ async function runApi(prompt, filePath, apiKey) {
   });
   const response = await stream.finalMessage();
   if (response.stop_reason === 'refusal') {
-    throw new Error('AI ne request decline kar di' + (response.stop_details ? ' (' + response.stop_details.category + ')' : ''));
+    throw new Error('AI declined the request' + (response.stop_details ? ' (' + response.stop_details.category + ')' : ''));
   }
   let text = '';
   for (const block of response.content) if (block.type === 'text') text += block.text;
@@ -238,7 +238,7 @@ async function runApi(prompt, filePath, apiKey) {
 async function analyzeDrawing({ filePath, rates, apiKey, geminiKey }) {
   const ext = path.extname(filePath).toLowerCase();
   if (!MIME[ext] && ext !== '.pdf') {
-    throw new Error('Yeh file format AI nahi padh sakta (' + ext + ') — PNG, JPG, WEBP, GIF ya PDF upload karo. DWG/DXF ko PDF me export kar lo. Phone photo (HEIC) ho to JPG me convert karo.');
+    throw new Error('AI cannot read this file format (' + ext + ') — upload PNG, JPG, WEBP, GIF or PDF. Export DWG/DXF to PDF first. Convert phone photos (HEIC) to JPG.');
   }
   // Engine priority: Gemini (free) > Anthropic API > claude CLI (sirf local)
   let text;
@@ -247,7 +247,7 @@ async function analyzeDrawing({ filePath, rates, apiKey, geminiKey }) {
   } else if (apiKey) {
     text = await runApi(buildPrompt(rates, null), filePath, apiKey);
   } else if (process.env.VERCEL) {
-    throw new Error('Online (Vercel) version par AI ke liye key chahiye — FREE Gemini key aistudio.google.com se banao aur Vercel me GEMINI_API_KEY environment variable set karo (ya app Settings me dalo). Bina key ke AI sirf localhost par chalta hai (Claude Code se).');
+    throw new Error('The online version needs an AI key — create a FREE Gemini key at aistudio.google.com and set the GEMINI_API_KEY environment variable in Vercel (or enter it in Settings). Without a key, AI runs only on localhost via Claude Code.');
   } else {
     text = await runClaudeCli(buildPrompt(rates, filePath), 8 * 60 * 1000);
   }
@@ -265,7 +265,7 @@ function buildChatPrompt(project, rates, settings, history, userMsg) {
   }).join('\n') || '(measurement sheet khali hai)';
   const rateList = rates.map(r => `${r.id}: ${r.item} | ${r.unit} | Rs.${r.rate}`).join('\n');
   const hist = (history || []).slice(-6).map(h => `${h.role === 'user' ? 'User' : 'You'}: ${h.text}`).join('\n');
-  return `You are the friendly Hindi/Hinglish assistant inside a civil-estimate app. The user talks to you to understand or CHANGE their estimate.
+  return `You are the friendly assistant inside a civil-estimate app. The user talks to you to understand or CHANGE their estimate.
 
 CURRENT PROJECT: "${project.name}" (client: ${project.client || '-'})
 MEASUREMENT SHEET (row numbers 1-based):
@@ -286,7 +286,7 @@ You can change the estimate by returning ops. Available ops:
 - {"op":"set_setting","key":"gst"|"contingency"|"electrification"|"plumbing","value":N}
 
 RULES:
-1. Reply in the user's language (Hindi/Hinglish), short and warm. Numbers with Rs.
+1. Reply in clear simple English, short and warm (mirror the user's language if they write in Hindi/Hinglish). Numbers with Rs.
 2. Only include ops when the user clearly asks for a change. Questions get reply with ops=[].
 3. Never invent rows that don't exist; row numbers must match the sheet above.
 4. If the request is unclear, ask a short clarifying question (ops=[]).
@@ -302,13 +302,13 @@ async function chatWithAI({ project, rates, settings, history, message, apiKey, 
   } else if (apiKey) {
     text = await runApiText(prompt, apiKey);
   } else if (process.env.VERCEL) {
-    throw new Error('Chat ke liye AI key chahiye — GEMINI_API_KEY set karo');
+    throw new Error('Chat needs an AI key — set GEMINI_API_KEY');
   } else {
     text = await runClaudeCliText(prompt, 3 * 60 * 1000);
   }
   const out = extractJson(text);
   return {
-    reply: String(out.reply || 'Ho gaya!').slice(0, 2000),
+    reply: String(out.reply || 'Done!').slice(0, 2000),
     ops: Array.isArray(out.ops) ? out.ops.slice(0, 30) : [],
   };
 }
@@ -326,15 +326,15 @@ async function runGeminiText(prompt, geminiKey) {
       }),
     });
     if (resp.status === 503 && attempt < 3) { await new Promise(r => setTimeout(r, 15000)); continue; }
-    if (resp.status === 429) throw new Error('Gemini free quota khatam — thodi der baad try karo');
+    if (resp.status === 429) throw new Error('Gemini free quota exhausted — try again shortly');
     if (!resp.ok) throw new Error('Gemini error ' + resp.status + ': ' + (await resp.text().catch(() => '')).slice(0, 150));
     const json = await resp.json();
     const parts = (json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts) || [];
     const text = parts.map(p => p.text || '').join('');
-    if (!text) throw new Error('Gemini se khali jawab');
+    if (!text) throw new Error('Empty response from Gemini');
     return text;
   }
-  throw new Error('Gemini busy hai — baad me try karo');
+  throw new Error('Gemini is busy — try again later');
 }
 
 async function runApiText(prompt, apiKey) {
@@ -347,7 +347,7 @@ async function runApiText(prompt, apiKey) {
     messages: [{ role: 'user', content: prompt }],
   });
   const response = await stream.finalMessage();
-  if (response.stop_reason === 'refusal') throw new Error('AI ne request decline ki');
+  if (response.stop_reason === 'refusal') throw new Error('AI declined the request');
   let text = '';
   for (const block of response.content) if (block.type === 'text') text += block.text;
   return text;

@@ -245,7 +245,7 @@ app.post('/api/projects/:id/chat', async (req, res) => {
   if (!p) return res.status(404).json({ error: 'Project not found' });
   if (!Array.isArray(p.measurements)) p.measurements = [];
   const message = String((req.body && req.body.message) || '').slice(0, 2000);
-  if (!message.trim()) return res.status(400).json({ error: 'Message khali hai' });
+  if (!message.trim()) return res.status(400).json({ error: 'Message is empty' });
   try {
     const out = await chatWithAI({
       project: p, rates: db.rates, settings: db.settings,
@@ -380,7 +380,7 @@ app.get('/api/sync/test', async (req, res) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log('');
-    console.log('  Civil Estimate WebApp chal raha hai:');
+    console.log('  Civil Estimate WebApp is running:');
     console.log('  >>  http://localhost:' + PORT);
     console.log('');
   });

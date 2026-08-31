@@ -45,12 +45,12 @@ function renderProjList() {
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function newProject() {
-  const name = prompt('Project ka naam? / प्रोजेक्ट का नाम?', 'New House Project');
+  const name = prompt('Project name?', 'New House Project');
   if (name === null) return;
   const p = await api('/api/projects', { method: 'POST', body: JSON.stringify({ name }) });
   DB.projects.push(p);
   selectProject(p.id);
-  toast('✅ Project ban gaya');
+  toast('✅ Project created');
 }
 
 function selectProject(id) {
@@ -98,14 +98,14 @@ async function saveProject() {
 
 async function deleteProject() {
   if (!CUR) return;
-  if (!confirm(`"${CUR.name}" delete karna hai? Drawings bhi delete ho jayengi.`)) return;
+  if (!confirm(`Delete "${CUR.name}"? All its drawings will also be deleted.`)) return;
   await api('/api/projects/' + CUR.id, { method: 'DELETE' });
   DB.projects = DB.projects.filter(p => p.id !== CUR.id);
   CUR = null;
   $('projectView').style.display = 'none';
   $('emptyState').style.display = 'block';
   renderProjList();
-  toast('🗑 Project delete ho gaya');
+  toast('🗑 Project deleted');
 }
 
 /* ================= TABS ================= */
@@ -131,16 +131,16 @@ async function uploadFiles(files) {
   for (const f of files) fd.append('drawings', f);
   toast('⬆ Uploading...');
   const r = await fetch(`/api/projects/${CUR.id}/drawings`, { method: 'POST', body: fd });
-  if (!r.ok) { toast('❌ Upload failed — sirf image/PDF allowed'); return; }
+  if (!r.ok) { toast('❌ Upload failed — only image/PDF/CAD files allowed'); return; }
   const added = await r.json();
   CUR.drawings.push(...added);
   $('drawingFile').value = '';
   renderDrawings();
   renderQuickDrawing();
-  toast(`✅ ${added.length} drawing upload ho gayi`);
+  toast(`✅ ${added.length} drawing(s) uploaded`);
   // upload hote hi AI analysis offer karo
   const analyzable = added.find(d => isImg(d.filename) || isPdf(d.filename));
-  if (analyzable && confirm('🤖 AI se drawing padh kar estimate banayein?\n(1-5 minute lag sakte hain)')) {
+  if (analyzable && confirm('🤖 Generate estimate from this drawing using AI?\n(May take 1-5 minutes)')) {
     aiAnalyze(analyzable.id);
   } else {
     showTab('quick');
@@ -171,11 +171,11 @@ function renderDrawings() {
       </div>`;
     g.appendChild(card);
   });
-  if (!(CUR.drawings || []).length) g.innerHTML = '<p class="hint">अभी कोई drawing upload नहीं हुई।</p>';
+  if (!(CUR.drawings || []).length) g.innerHTML = '<p class="hint">No drawings uploaded yet.</p>';
 }
 
 async function deleteDrawing(did) {
-  if (!confirm('Drawing delete karni hai?')) return;
+  if (!confirm('Delete this drawing?')) return;
   await api(`/api/projects/${CUR.id}/drawings/${did}`, { method: 'DELETE' });
   CUR.drawings = CUR.drawings.filter(d => d.id !== did);
   renderDrawings(); renderQuickDrawing();
@@ -190,7 +190,7 @@ function openViewer(did) {
     ? `<img src="${url}">`
     : isPdf(d.filename)
       ? `<iframe src="${url}"></iframe>`
-      : `<p class="hint">Is file type ka preview browser me nahi hota (${esc(d.original)}). <a href="${url}" download>⬇ Download</a> karke CAD software me kholo.</p>`;
+      : `<p class="hint">This file type cannot be previewed in the browser (${esc(d.original)}). <a href="${url}" download>⬇ Download</a> and open in CAD software.</p>`;
   $('viewerModal').style.display = 'flex';
 }
 function closeViewer() { $('viewerModal').style.display = 'none'; $('viewerBody').innerHTML = ''; }
@@ -198,12 +198,12 @@ function closeViewer() { $('viewerModal').style.display = 'none'; $('viewerBody'
 function renderQuickDrawing() {
   const v = $('quickDrawingView');
   const ds = CUR ? (CUR.drawings || []) : [];
-  if (!ds.length) { v.innerHTML = '<p class="hint">कोई drawing upload नहीं है — Drawings tab से upload करो।</p>'; return; }
+  if (!ds.length) { v.innerHTML = '<p class="hint">No drawing uploaded — upload one from the Drawings tab.</p>'; return; }
   const d = ds[ds.length - 1];
   const url = '/uploads/' + d.filename;
   v.innerHTML = isImg(d.filename) ? `<img src="${url}">`
     : isPdf(d.filename) ? `<iframe src="${url}"></iframe>`
-    : `<p class="hint">${esc(d.original)} (CAD file — preview नहीं)</p>`;
+    : `<p class="hint">${esc(d.original)} (CAD file — no preview)</p>`;
 }
 
 /* ================= QUICK ESTIMATE ================= */
@@ -246,7 +246,7 @@ const COEF = {
 function generateQuick(append) {
   if (!CUR) return;
   let area = Number($('qArea').value);
-  if (!area || area <= 0) { toast('⚠ पहले built-up area डालो'); return; }
+  if (!area || area <= 0) { toast('⚠ Enter built-up area first'); return; }
   if ($('qUnit').value === 'sqft') area = area * 0.0929; // -> sqm
   const floors = Number($('qFloors').value);
   const type = $('qType').value;
@@ -269,7 +269,7 @@ function generateQuick(append) {
 
   if (append) CUR.measurements.push(...rows);
   else {
-    if (CUR.measurements.length && !confirm('पुरानी measurement sheet replace हो जाएगी. OK?')) return;
+    if (CUR.measurements.length && !confirm('Existing measurement sheet will be replaced. OK?')) return;
     CUR.measurements = rows;
   }
   scheduleSave();
@@ -277,24 +277,24 @@ function generateQuick(append) {
   const ab = calcAbstract();
   $('quickResult').innerHTML = `
     <div class="qsummary">
-      ✅ Estimate ban gaya! Total BUA: <b>${fmt(total)} sq.m</b> (${fmt(total / 0.0929)} sq.ft)<br>
+      ✅ Estimate generated! Total BUA: <b>${fmt(total)} sq.m</b> (${fmt(total / 0.0929)} sq.ft)<br>
       Estimated Cost (incl. GST): <b>${fmtMoney(ab.grand)}</b>
       &nbsp; <span class="hint">(~ ${fmtMoney(ab.grand / (total / 0.0929))}/sq.ft)</span><br>
-      <small class="hint">📏 Measurement Sheet tab में हर item की quantity edit कर सकते हो — exact drawing measurements डालने के लिए।</small>
+      <small class="hint">📏 Edit any item's quantity in the Measurement Sheet tab to enter exact drawing measurements.</small>
     </div>`;
   renderAbstract();
-  toast('⚡ Estimate generate ho gaya!');
+  toast('⚡ Estimate generated!');
 }
 
 /* ================= AI DRAWING ANALYSIS ================= */
 let AI_RESULT = null;
 let AI_BUSY = false;
 const AI_STATUS_MSGS = [
-  '🤖 AI drawing padh raha hai...',
-  '📐 Dimensions nikale ja rahe hain...',
-  '🧮 Quantities calculate ho rahi hain...',
-  '📋 Measurement items ban rahe hain...',
-  '⏳ Thoda aur sabr — badi drawing hai...',
+  '🤖 AI is reading the drawing...',
+  '📐 Extracting dimensions...',
+  '🧮 Calculating quantities...',
+  '📋 Preparing measurement items...',
+  '⏳ Almost there — large drawing...',
 ];
 
 async function aiAnalyze(did) {
@@ -309,7 +309,7 @@ async function aiAnalyze(did) {
     <div class="ai-loading">
       <div class="spinner"></div>
       <p id="aiStatusMsg">${AI_STATUS_MSGS[0]}</p>
-      <p class="hint">Drawing: <b>${esc(d.original)}</b><br>1-5 minute lag sakte hain — window band mat karo</p>
+      <p class="hint">Drawing: <b>${esc(d.original)}</b><br>May take 1-5 minutes — please don't close this window</p>
     </div>`;
   const ticker = setInterval(() => {
     const el = $('aiStatusMsg');
@@ -325,13 +325,13 @@ async function aiAnalyze(did) {
   } catch (e) {
     $('aiBody').innerHTML = `
       <div class="ai-error">
-        <p>❌ <b>AI analysis fail ho gayi</b></p>
+        <p>❌ <b>AI analysis failed</b></p>
         <p class="hint">${esc(String(e.message || e))}</p>
         <div class="actions">
-          <button class="btn btn-primary btn-sm" onclick="aiAnalyze('${did}')">🔁 Dobara try karo</button>
-          <button class="btn btn-ghost btn-sm" onclick="closeAi()">Band karo</button>
+          <button class="btn btn-primary btn-sm" onclick="aiAnalyze('${did}')">🔁 Try again</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeAi()">Close</button>
         </div>
-        <p class="hint">💡 Agar baar-baar fail ho: drawing ki saaf image (PNG/JPG) upload karke try karo, ya ⚡ Quick Estimate use karo.</p>
+        <p class="hint">💡 If it keeps failing: upload a clearer image (PNG/JPG) of the drawing, or use ⚡ Quick Estimate.</p>
       </div>`;
   } finally {
     clearInterval(ticker);
@@ -340,7 +340,7 @@ async function aiAnalyze(did) {
 }
 
 function confBadge(c) {
-  const map = { high: ['#059669', 'High — dimensions clearly readable'], medium: ['#d97706', 'Medium — kuch assumptions li gayi hain'], low: ['#dc2626', 'Low — drawing clear nahi, verify zaroor karo'] };
+  const map = { high: ['#059669', 'High — dimensions clearly readable'], medium: ['#d97706', 'Medium — some assumptions were made'], low: ['#dc2626', 'Low — drawing unclear, verify carefully'] };
   const [color, label] = map[c] || map.medium;
   return `<span class="conf-badge" style="background:${color}">${c.toUpperCase()}</span> <small class="hint">${label}</small>`;
 }
@@ -353,7 +353,7 @@ function renderAiResult(did) {
       <p><b>🏗 Structure:</b> ${esc(a.structureType)} &nbsp; ${confBadge(a.confidence)}</p>
       <p class="hint">${esc(a.summary)}</p>
       ${(a.warnings || []).length ? `<div class="ai-warn">${a.warnings.map(w => `⚠️ ${esc(w)}`).join('<br>')}</div>` : ''}
-      ${a.assumptions.length ? `<details open><summary><b>📌 Assumptions (${a.assumptions.length})</b> — verify kar lena</summary><ul class="ai-list">${a.assumptions.map(s => `<li>${esc(s)}</li>`).join('')}</ul></details>` : ''}
+      ${a.assumptions.length ? `<details open><summary><b>📌 Assumptions (${a.assumptions.length})</b> — please verify</summary><ul class="ai-list">${a.assumptions.map(s => `<li>${esc(s)}</li>`).join('')}</ul></details>` : ''}
       ${a.unreadable.length ? `<details><summary><b>⚠️ Unreadable portions (${a.unreadable.length})</b></summary><ul class="ai-list">${a.unreadable.map(s => `<li>${esc(s)}</li>`).join('')}</ul></details>` : ''}
       <div class="table-wrap" style="max-height:320px;margin-top:10px">
         <table class="tbl">
@@ -372,18 +372,18 @@ function renderAiResult(did) {
         </table>
       </div>
       <div class="actions" style="margin-top:12px">
-        <button class="btn btn-success" onclick="aiApply(false)">✅ Measurement Sheet me daalo (replace)</button>
-        <button class="btn btn-primary" onclick="aiApply(true)">＋ Append karo</button>
+        <button class="btn btn-success" onclick="aiApply(false)">✅ Add to Measurement Sheet (replace)</button>
+        <button class="btn btn-primary" onclick="aiApply(true)">＋ Append</button>
         <button class="btn btn-ghost" onclick="closeAi()">Cancel</button>
       </div>
-      <p class="hint">⚠️ AI ka estimate drawing padh kar banaya gaya hai — tender/bill se pehle measurement sheet me items verify kar lena.</p>
+      <p class="hint">⚠️ This estimate was generated by AI from the drawing — verify all items in the measurement sheet before tender/billing.</p>
     </div>`;
 }
 
 function aiApply(append) {
   if (!AI_RESULT || !CUR) return;
   const chosen = [...document.querySelectorAll('.ai-chk')].filter(c => c.checked).map(c => AI_RESULT.items[+c.dataset.ai]);
-  if (!chosen.length) { toast('⚠ Koi item select nahi hai'); return; }
+  if (!chosen.length) { toast('⚠ No items selected'); return; }
   const rows = chosen.map(it => ({
     id: 'm' + Math.random().toString(36).slice(2, 9),
     itemId: it.itemId || '',
@@ -399,11 +399,11 @@ function aiApply(append) {
   renderMeasure();
   renderAbstract();
   showTab('abstract');
-  toast(`✅ ${rows.length} items estimate me aa gaye — Abstract ready hai!`);
+  toast(`✅ ${rows.length} items added — Abstract is ready!`);
 }
 
 function closeAi() {
-  if (AI_BUSY && !confirm('AI analysis abhi chal rahi hai — sach me band karna hai?')) return;
+  if (AI_BUSY && !confirm('AI analysis is still running — really close?')) return;
   $('aiModal').style.display = 'none';
 }
 
@@ -432,13 +432,13 @@ async function sendChat() {
   const input = $('chatInput');
   const msg = input.value.trim();
   if (!msg) return;
-  if (!CUR) { chatBubble('Pehle koi project kholo ya banao 🙂', 'bot'); return; }
+  if (!CUR) { chatBubble('Please open or create a project first 🙂', 'bot'); return; }
   input.value = '';
   chatBubble(msg, 'user');
   CHAT_HISTORY.push({ role: 'user', text: msg });
   CHAT_BUSY = true;
   $('chatSendBtn').disabled = true;
-  const thinking = chatBubble('💭 soch raha hoon...', 'bot');
+  const thinking = chatBubble('💭 thinking...', 'bot');
   try {
     const r = await fetch('/api/projects/' + CUR.id + '/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -460,7 +460,7 @@ async function sendChat() {
       renderAbstract();
       scheduleSave();
       chatBubble('📝 Changes: ' + data.changes.join(', '), 'bot changes');
-      toast('✅ Estimate update ho gaya (' + data.changes.length + ' change)');
+      toast('✅ Estimate updated (' + data.changes.length + ' change)');
     }
   } catch (e) {
     thinking.remove();
@@ -506,7 +506,7 @@ function renderMeasure() {
     tr.innerHTML = `
       <td>${i + 1}</td>
       <td><select data-i="${i}" data-f="itemId">${itemOptions(m.itemId)}</select>
-        ${isCustom ? `<input data-i="${i}" data-f="item" value="${esc(m.item || '')}" placeholder="Custom item ka naam" style="margin-top:3px">` : ''}</td>
+        ${isCustom ? `<input data-i="${i}" data-f="item" value="${esc(m.item || '')}" placeholder="Custom item name" style="margin-top:3px">` : ''}</td>
       <td><input data-i="${i}" data-f="description" value="${esc(m.description)}" placeholder="e.g. Footing F1 / Wall W2"></td>
       <td><input class="num" data-i="${i}" data-f="nos" value="${esc(m.nos)}"></td>
       <td><input class="num" data-i="${i}" data-f="L" value="${esc(m.L)}"></td>
@@ -574,7 +574,7 @@ function renderAbstract() {
   b.innerHTML = ab.rows.map(r => `
     <tr><td>${r.sno}</td><td>${esc(r.item)}</td><td class="qty">${fmt(r.qty)}</td>
     <td>${esc(r.unit)}</td><td class="amt">${fmt(r.rate)}</td><td class="amt">${fmt(r.amount)}</td></tr>`).join('')
-    || '<tr><td colspan="6" class="hint" style="padding:14px">Measurement sheet खाली है — पहले ⚡ Quick Estimate चलाओ या 📏 rows add करो।</td></tr>';
+    || '<tr><td colspan="6" class="hint" style="padding:14px">Measurement sheet is empty — run ⚡ Quick Estimate or add rows first.</td></tr>';
   const st = DB.settings;
   $('abstractFoot').innerHTML = `
     <tr class="tot-row"><td colspan="5">Total Civil Cost</td><td class="amt">${fmt(ab.civil)}</td></tr>
@@ -630,18 +630,18 @@ function downloadCSV(kind) {
 async function syncProject() {
   if (!CUR) return;
   const el = $('syncStatus');
-  el.className = 'sync-status no-print'; el.textContent = '🔄 Google Sheet me save ho raha hai...';
+  el.className = 'sync-status no-print'; el.textContent = '🔄 Saving to Google Sheet...';
   await saveProject();
   try {
     // browser apna poora project data saath bhejta hai — serverless par bhi sync kabhi fail nahi hota
     const r = await api('/api/sync/' + CUR.id, { method: 'POST', body: JSON.stringify({ project: CUR }) });
     el.className = 'sync-status ok no-print';
-    el.textContent = '✅ Google Sheet me save ho gaya! (' + new Date().toLocaleTimeString() + ')';
-    toast('✅ Data Google Sheet me save ho gaya');
+    el.textContent = '✅ Saved to Google Sheet! (' + new Date().toLocaleTimeString() + ')';
+    toast('✅ Data saved to Google Sheet');
   } catch (e) {
     el.className = 'sync-status err no-print';
     if (e && e.error === 'NO_SCRIPT_URL') {
-      el.innerHTML = '⚠ पहले Settings में Apps Script URL डालो — बिना इसके Google Sheet में save नहीं होगा. <a href="#" onclick="openSettings();return false">Settings खोलो</a> (setup steps README-SETUP.md में हैं)';
+      el.innerHTML = '⚠ Set the Apps Script URL in Settings first — without it nothing can be saved to Google Sheet. <a href="#" onclick="openSettings();return false">Open Settings</a> (setup steps are in README-SETUP.md)';
     } else {
       el.textContent = '❌ Sync failed: ' + (e.detail ? JSON.stringify(e.detail).slice(0, 200) : JSON.stringify(e).slice(0, 200));
     }
@@ -663,7 +663,7 @@ async function saveSettings() {
   DB.settings.apiKey = $('setApiKey').value.trim();
   DB.settings.geminiKey = $('setGeminiKey').value.trim();
   await api('/api/settings', { method: 'PUT', body: JSON.stringify(DB.settings) });
-  toast('💾 Settings save ho gayi');
+  toast('💾 Settings saved');
 }
 
 async function testConnection() {
@@ -674,7 +674,7 @@ async function testConnection() {
     const r = await api('/api/sync/test');
     el.textContent = r.ok ? '✅ Connected!' : '⚠ Response: ' + r.status;
   } catch (e) {
-    el.textContent = '❌ ' + (e.error === 'NO_SCRIPT_URL' ? 'URL khali hai' : 'connect nahi hua');
+    el.textContent = '❌ ' + (e.error === 'NO_SCRIPT_URL' ? 'URL is empty' : 'could not connect');
   }
 }
 

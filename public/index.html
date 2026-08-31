@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar no-print">
     <div class="brand">🏗️ <span>Civil Estimate</span></div>
-    <button class="btn btn-primary w100" onclick="newProject()">＋ New Project / नया प्रोजेक्ट</button>
+    <button class="btn btn-primary w100" onclick="newProject()">＋ New Project</button>
     <div class="proj-list" id="projList"></div>
     <div class="sidebar-bottom">
       <button class="btn btn-ghost w100" onclick="openSettings()">⚙️ Settings &amp; Google Sheet</button>
@@ -25,7 +25,7 @@
     <div id="emptyState" class="empty-state">
       <div class="big">🏗️</div>
       <h2>Civil Work Estimate App</h2>
-      <p>बाईं तरफ से <b>New Project</b> बनाओ → drawing upload करो → estimate बनाओ → Google Sheet में save करो।</p>
+      <p>Create a <b>New Project</b> from the left panel → upload drawings → generate the estimate → save to Google Sheet.</p>
     </div>
 
     <!-- project view -->
@@ -36,7 +36,7 @@
           <button class="btn btn-danger btn-sm" onclick="deleteProject()">🗑 Delete</button>
         </div>
         <div class="proj-meta">
-          <label>Client <input id="pClient" placeholder="Client / मालिक"></label>
+          <label>Client <input id="pClient" placeholder="Client name"></label>
           <label>Location <input id="pLocation" placeholder="Site location"></label>
           <label>Date <input id="pDate" type="date"></label>
         </div>
@@ -53,15 +53,15 @@
       <section id="tab-drawings" class="tabpane">
         <div class="card">
           <div class="card-head">
-            <h3>📐 Drawings — drawing upload करो (PDF / Image)</h3>
+            <h3>📐 Drawings — Upload PDF / Image</h3>
             <label class="btn btn-primary">
               ⬆ Upload Drawing
               <input type="file" id="drawingFile" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.bmp,.pdf,.dwg,.dxf" hidden>
             </label>
           </div>
-          <div class="dropzone" id="dropzone">यहाँ drawing file drag &amp; drop करो, या ऊपर Upload button दबाओ<br><small>PDF, JPG, PNG, DWG, DXF — max 50 MB</small><br><small>🤖 Upload होते ही AI drawing पढ़कर estimate बना देगा (PDF/image पर)</small></div>
+          <div class="dropzone" id="dropzone">Drag &amp; drop drawing files here, or click the Upload button above<br><small>PDF, JPG, PNG, DWG, DXF — max 50 MB</small><br><small>🤖 AI reads the drawing and generates the estimate right after upload (PDF/image)</small></div>
           <div class="drawings-grid" id="drawingsGrid"></div>
-          <p class="hint">💡 Drawing upload करने के बाद <b>⚡ Quick Estimate</b> tab में drawing की dimensions डालो — पूरा item-wise estimate अपने आप बन जाएगा।</p>
+          <p class="hint">💡 After uploading, you can also enter dimensions in the <b>⚡ Quick Estimate</b> tab — a complete item-wise estimate is generated automatically.</p>
         </div>
       </section>
 
@@ -69,10 +69,10 @@
       <section id="tab-quick" class="tabpane" style="display:none">
         <div class="split">
           <div class="card">
-            <h3>⚡ Quick Estimate — drawing से dimensions डालो</h3>
-            <p class="hint">Drawing देखकर building की built-up area और details डालो। Standard thumb-rule coefficients से पूरा measurement sheet auto-generate होगा। बाद में हर row edit कर सकते हो।</p>
+            <h3>⚡ Quick Estimate — enter dimensions from the drawing</h3>
+            <p class="hint">Enter the building's built-up area and details from the drawing. A complete measurement sheet is auto-generated using standard thumb-rule coefficients. Every row can be edited later.</p>
             <div class="form-grid">
-              <label>Built-up Area (प्रति floor)
+              <label>Built-up Area (per floor)
                 <div class="inline">
                   <input type="number" id="qArea" placeholder="e.g. 1200" min="0">
                   <select id="qUnit"><option value="sqft">sq.ft</option><option value="sqm">sq.m</option></select>
@@ -101,7 +101,7 @@
           </div>
           <div class="card drawing-side" id="quickDrawingSide">
             <h3>Drawing Preview</h3>
-            <div id="quickDrawingView" class="quick-drawing-view"><p class="hint">कोई drawing upload नहीं है — Drawings tab से upload करो।</p></div>
+            <div id="quickDrawingView" class="quick-drawing-view"><p class="hint">No drawing uploaded — upload one from the Drawings tab.</p></div>
           </div>
         </div>
       </section>
@@ -130,7 +130,7 @@
               <tbody id="measureBody"></tbody>
             </table>
           </div>
-          <p class="hint">💡 खाली cell = 1 माना जाएगा। kg / nos items के लिए quantity सीधे <b>Nos</b> में डालो, L/B/H खाली छोड़ो।</p>
+          <p class="hint">💡 An empty cell counts as 1. For kg / nos items enter the quantity directly in <b>Nos</b> and leave L/B/H empty.</p>
         </div>
       </section>
 
@@ -175,9 +175,9 @@
     <div class="modal-head"><h3>⚙️ Settings — Google Sheet &amp; Rates</h3><button class="x" onclick="closeSettings()">✕</button></div>
     <div class="modal-body">
       <h4>🔗 Google Sheet Connection</h4>
-      <p class="hint">Data इस sheet में save होगा: <a href="https://docs.google.com/spreadsheets/d/1MhPRSmdoXu-D9dCeM5OL6_LGoPxagnszUOAARZmCZ2o/edit" target="_blank">आपकी Google Sheet ↗</a><br>
-      इसके लिए एक बार <b>Apps Script Web App URL</b> setup करना होगा (steps README-SETUP.md में हैं, project folder में)।</p>
-      <label class="block-label">Apps Script Web App URL (/exec वाला)
+      <p class="hint">Data is saved to this sheet: <a href="https://docs.google.com/spreadsheets/d/1MhPRSmdoXu-D9dCeM5OL6_LGoPxagnszUOAARZmCZ2o/edit" target="_blank">Your Google Sheet ↗</a><br>
+      A one-time <b>Apps Script Web App URL</b> setup is required (steps are in README-SETUP.md in the project folder).</p>
+      <label class="block-label">Apps Script Web App URL (ending with /exec)
         <input id="setScriptUrl" placeholder="https://script.google.com/macros/s/AKfy.../exec">
       </label>
       <div class="actions">
@@ -187,16 +187,16 @@
       </div>
       <hr>
       <h4>🤖 AI Drawing Analysis</h4>
-      <p class="hint"><b>🆓 FREE option (recommended):</b> <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> से Google Gemini की <b>free API key</b> बनाओ (Google login → Create API key → copy) — कोई credit card नहीं चाहिए:</p>
+      <p class="hint"><b>🆓 FREE option (recommended):</b> Create a <b>free Google Gemini API key</b> at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> (Google login → Create API key → copy) — no credit card needed:</p>
       <label class="block-label">Google Gemini API Key (FREE) 🆓
-        <input id="setGeminiKey" type="password" placeholder="AIza... (aistudio.google.com se free banao)">
+        <input id="setGeminiKey" type="password" placeholder="AIza... (create free at aistudio.google.com)">
       </label>
-      <p class="hint">Ya phir: Anthropic API key (paid, best quality) — khali chhodne par localhost pe Claude Code use hota hai:</p>
+      <p class="hint">Or: Anthropic API key (paid, best quality) — leave empty to use Claude Code on localhost:</p>
       <label class="block-label">Anthropic API Key (optional, paid)
         <input id="setApiKey" type="password" placeholder="sk-ant-...">
       </label>
       <hr>
-      <h4>💹 Rate List (SOR) — rates edit करो, अपने area के हिसाब से</h4>
+      <h4>💹 Rate List (SOR) — edit rates as per your area</h4>
       <div class="table-wrap" style="max-height:300px">
         <table class="tbl"><thead><tr><th>#</th><th>Item of Work</th><th>Unit</th><th>Rate (₹)</th></tr></thead>
         <tbody id="ratesBody"></tbody></table>
@@ -207,22 +207,22 @@
 </div>
 
 <!-- ============ CHAT ASSISTANT ============ -->
-<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="AI Assistant se baat karo">💬</button>
+<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="Chat with the AI Assistant">💬</button>
 <div id="chatPanel" class="chat-panel" style="display:none">
   <div class="chat-head">
-    <span>🤖 AI Assistant — बोलो क्या change करना है</span>
+    <span>🤖 AI Assistant — tell me what to change</span>
     <button class="x" onclick="toggleChat()">✕</button>
   </div>
   <div id="chatMsgs" class="chat-msgs">
-    <div class="chat-msg bot">नमस्ते! 🙏 मैं आपके estimate में changes कर सकता हूँ। जैसे:<br>
-      • "brickwork ka rate 6500 kar do"<br>
-      • "row 3 ki length 15 meter karo"<br>
-      • "ek naya item जोड़ो — compound wall 30 rmt"<br>
-      • "GST 12% kar do"<br>
-      • "total kitna ban raha hai?"</div>
+    <div class="chat-msg bot">Hello! 👋 I can make changes to your estimate. For example:<br>
+      • "change brickwork rate to 6500"<br>
+      • "make row 3 length 15 meters"<br>
+      • "add a new item — compound wall 30 rmt"<br>
+      • "set GST to 12%"<br>
+      • "what is the current total?"</div>
   </div>
   <div class="chat-inputrow">
-    <input id="chatInput" placeholder="yahan likho... (Enter se send)" onkeydown="if(event.key==='Enter')sendChat()">
+    <input id="chatInput" placeholder="type here... (Enter to send)" onkeydown="if(event.key==='Enter')sendChat()">
     <button class="btn btn-primary btn-sm" id="chatSendBtn" onclick="sendChat()">➤</button>
   </div>
 </div>
