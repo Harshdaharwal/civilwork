@@ -38,8 +38,9 @@ const DEFAULT_RATES = [
 function defaultDb() {
   return {
     settings: {
-      scriptUrl: '',
-      sheetId: '1MhPRSmdoXu-D9dCeM5OL6_LGoPxagnszUOAARZmCZ2o',
+      // Vercel par settings /tmp me reset ho jaati hain — env variables se aa jaayengi
+      scriptUrl: process.env.SCRIPT_URL || '',
+      sheetId: process.env.SHEET_ID || '1MhPRSmdoXu-D9dCeM5OL6_LGoPxagnszUOAARZmCZ2o',
       contingency: 3,
       electrification: 8,
       plumbing: 8,
